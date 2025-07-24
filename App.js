@@ -1,24 +1,56 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-
+import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './HomeScreen';
 import ResultsScreen from './ResultsScreen';
 import RecipeDetailScreen from './RecipeDetailScreen';
 import FavoritesScreen from './FavoritesScreen';
 import AccountScreen from './AccountScreen';
 import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Placeholder screens for Discover, Search, Profile if not already present
+function DiscoverScreen() {
+  return null;
+}
+function SearchScreen() {
+  return null;
+}
+function ProfileScreen() {
+  return null;
+}
+
 function MainTabs() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') {
+            iconName = 'home';
+          } else if (route.name === 'Discover') {
+            iconName = 'compass';
+          } else if (route.name === 'Search') {
+            iconName = 'search';
+          } else if (route.name === 'Profile') {
+            iconName = 'person';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#6BB14E',
+        tabBarInactiveTintColor: '#888',
+        tabBarLabelStyle: { fontWeight: '500', fontSize: 12 },
+        headerShown: false,
+      })}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} />
-      <Tab.Screen name="Account" component={AccountScreen} />
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
