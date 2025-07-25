@@ -230,6 +230,33 @@ export default function HomeScreen({ navigation }) {
           )}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: 8 }}
         />
+        {/* Temporary Navigation Button for Testing */}
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('RecipeDetail', {
+                id: '1',
+                title: 'Chicken and Salad',
+                image: 'https://images.unsplash.com/photo-1662192512691-2786c53eca40?q=80&w=388&auto=format&fit=crop',
+                protein: 35,
+                calories: 400,
+                carbs: 40,
+                fat: 10,
+                vegan: false,
+                glutenFree: true,
+              })
+            }
+            style={{
+              marginTop: 30,
+              marginBottom: 60,
+              backgroundColor: '#6BB14E',
+              padding: 14,
+              borderRadius: 10,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>Go to RecipeDetail</Text>
+          </TouchableOpacity>
+
       </ScrollView>
     </View>
   );
