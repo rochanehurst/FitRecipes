@@ -13,10 +13,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens for Discover, Search, Profile if not already present
-function DiscoverScreen() {
-  return null;
-}
+// Placeholder screens for Search, Profile if not already present
 function SearchScreen() {
   return null;
 }
@@ -32,10 +29,10 @@ function MainTabs() {
           let iconName;
           if (route.name === 'Home') {
             iconName = 'home';
-          } else if (route.name === 'Discover') {
-            iconName = 'compass';
           } else if (route.name === 'Search') {
             iconName = 'search';
+          } else if (route.name === 'Favorites') {
+            iconName = 'bookmark';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           }
@@ -48,8 +45,8 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

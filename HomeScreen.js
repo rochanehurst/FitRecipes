@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, FlatList, Image, TouchableOpacity, StyleSheet, ImageBackground, ScrollView, StatusBar, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, SimpleLineIcons, FontAwesome, FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFonts, Carattere_400Regular } from '@expo-google-fonts/carattere';
+import * as Font from 'expo-font';
+
 
 
 const FEATURED_RECIPES = [
   {
     id: '1',
     title: 'Grilled Chicken and Salad',
-    image: 'https://images.unsplash.com/photo-1519864600265-abb23847ef2c?auto=format&fit=crop&w=400&q=80',
+    image: 'https://images.unsplash.com/photo-1662192512691-2786c53eca40?q=80&w=388&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   },
   {
     id: '2',
@@ -80,31 +81,42 @@ export default function HomeScreen({ navigation }) {
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [activeTab, setActiveTab] = useState('Home');
 
+
+
+  const [fontsLoaded] = useFonts({
+    Carattere_400Regular,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+  
+
   const FILTERS = [
     {
       key: 'highProtein',
       label: 'High Protein',
-      icon: <Ionicons name="barbell-outline" size={28} color="#fff" />,
+      icon: <Ionicons name="barbell" size={28} color="#944EB1" />,
     },
     {
-      key: 'lowCarb',
+      key: 'LowCarb',
       label: 'Low Carb',
-      icon: <Ionicons name="leaf-outline" size={28} color="#fff" />,
+      icon: <FontAwesome6 name="bowl-rice" size={28} color="#944EB1" />,
     },
     {
       key: 'lowCalorie',
       label: 'Low Calorie',
-      icon: <Ionicons name="flame-outline" size={28} color="#fff" />,
+      icon: <SimpleLineIcons name="energy" size={28} color="#944EB1" />,
     },
     {
       key: 'vegan',
       label: 'Vegan',
-      icon: <Ionicons name="restaurant-outline" size={28} color="#fff" />,
+      icon: <MaterialCommunityIcons name="leaf" size={28} color="#944EB1" />,
     },
     {
       key: 'glutenFree',
       label: 'Gluten Free',
-      icon: <MaterialCommunityIcons name="wheat-off" size={28} color="#fff" />,
+      icon: <FontAwesome6 name="jar-wheat" size={28} color="#944EB1" />,
     },
   ];
 
@@ -116,13 +128,13 @@ export default function HomeScreen({ navigation }) {
 
   // Get status bar height for proper offset
   const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 44;
-  const topBarHeight = statusBarHeight + 10;
+  const topBarHeight = statusBarHeight + 20;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       {/* Status Bar and Solid Color Bar */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: topBarHeight, backgroundColor: '#F9F9F9', zIndex: 10 }} pointerEvents="none" />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: topBarHeight, backgroundColor: '#333333', zIndex: 10 }} pointerEvents="none" />
       {/* Header Section */}
       <ImageBackground
         source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80' }}
@@ -133,12 +145,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.headerImageOverlay} pointerEvents="none" />
         {/* Top Icons */}
         <View style={styles.headerIconsRow}>
-          <TouchableOpacity style={styles.headerIconLeft}>
-            <Ionicons name="person-outline" size={28} color="#944EB1" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIconRight}>
-            <Ionicons name="bookmark-outline" size={28} color="#944EB1" />
-          </TouchableOpacity>
+          {/* Removed bookmark and person icons */}
         </View>
         {/* Title */}
         <View style={styles.headerTitleContainer}>
@@ -250,12 +257,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     zIndex: 2,
   },
-  headerIconLeft: {
-    padding: 10,
-  },
-  headerIconRight: {
-    padding: 10,
-  },
+  // Removed headerIconLeft and headerIconRight styles
   // headerTitleContainer: {
   //   backgroundColor: 'rgba(244, 244, 244, 0.8)',
   //   paddingVertical: 10,
@@ -264,14 +266,15 @@ const styles = StyleSheet.create({
   //   zIndex: 2,
   // },
   headerTitle: {
-    fontSize: 70,
-    fontWeight: 'bold',
+    fontSize: 100,
     color: '#944EB1',
     paddingBottom: 50,
+    paddingRight: 10,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 6,
     zIndex: 2,
+    fontFamily: 'Carattere_400Regular',
   },
   
   searchBarOuter: {

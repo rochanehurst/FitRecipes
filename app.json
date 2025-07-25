@@ -1,0 +1,11 @@
+{
+  "android": {
+    "package": "com.anonymous.fitrecipes"
+  },
+  "ios": {
+    "bundleIdentifier": "com.anonymous.fitrecipes"
+  },
+  "plugins": [
+    "expo-font"
+  ]
+}
