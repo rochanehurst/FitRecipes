@@ -29,3 +29,7 @@ export async function isFavorite(id) {
     return list.some(r => String(r.id) ===String(id));
     
 }
+
+export async function clearFavorites() {
+    await AsyncStorage.removeItem('favorites:v1');
+}
