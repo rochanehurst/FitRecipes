@@ -2,92 +2,195 @@
 import { supabase } from '../supabaseClient';
 
 export type Recipe = {
-  id: string | number;
+  id: number | string;
   title: string;
-  image?: string;
-  protein?: number;
-  calories?: number;
-  carbs?: number;
+  description?: string;
+  image?: string;        // app expects `image`
+  protein?: number;      // grams per serving
+  calories?: number;     // kcal per serving
+  rating?: number;
+  staffPick?: boolean;
+  // optional/future
+  carbs?: number;        // grams per serving
   fat?: number;
   vegan?: boolean;
   glutenFree?: boolean;
-  rating?: number;
 };
-
-const LOCAL_SAMPLE: Recipe[] = [
-  { id: '1', title: 'Grilled Chicken and Salad', image: 'https://images.unsplash.com/photo-1662192512691-2786c53eca40?q=80&w=388&auto=format&fit=crop', protein: 35, calories: 400, carbs: 40, fat: 10, vegan: false, glutenFree: true, rating: 4.5 },
-  { id: '2', title: 'Chickpea Curry', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80', protein: 14, calories: 520, carbs: 65, fat: 14, vegan: true, glutenFree: true, rating: 4.7 },
-];
 
 type Filters = {
   highProtein?: boolean;
   lowCalorie?: boolean;
-  LowCarb?: boolean;
+  lowCarb?: boolean;     // NOTE: was LowCarb
   vegan?: boolean;
   glutenFree?: boolean;
 };
 
-const supabaseLooksUsable =
-  !!supabase &&
-  typeof (supabase as any).from === 'function' &&
-  // if you export url/key in your client you can check those too
-  true;
+type SortKey = 'relevance' | 'rating_desc' | 'protein_desc' | 'staff_picks';
 
-export async function searchRecipes(
-  { query = '', filters = {} as Filters, limit = 30, offset = 0 }:
-  { query?: string; filters?: Filters; limit?: number; offset?: number; }
-): Promise<Recipe[]> {
+const LOCAL_SAMPLE: Recipe[] = [
+  { id: 1, title: 'Grilled Chicken and Salad', image: 'https://images.unsplash.com/photo-1662192512691-2786c53eca40?q=80&w=388&auto=format&fit=crop', protein: 35, calories: 300, rating: 4.7, staffPick: true },
+  { id: 2, title: 'Vegan Buddha Bowl', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80', protein: 18, calories: 500, rating: 4.5, staffPick: false },
+];
+
+const supabaseUsable = !!supabase && typeof (supabase as any).from === 'function';
+
+// --- Nutrition rules (single source of truth) ---
+function isLowCarb(r: Recipe): boolean {
+  return typeof r.carbs === 'number' && r.carbs < 50;          // < 50g carbs/serving
+}
+function isLowCalorie(r: Recipe): boolean {
+  return typeof r.calories === 'number' && r.calories < 200;   // < 200 kcal/serving
+}
+function isHighProtein(r: Recipe): boolean {
+  // protein_g * 10 > calories/serving
+  return typeof r.protein === 'number' &&
+         typeof r.calories === 'number' &&
+         (r.protein * 10) > r.calories;
+}
+
+function matchesNutritionFilters(r: Recipe, f: Filters): boolean {
+  if (f.lowCarb && !isLowCarb(r)) return false;
+  if (f.lowCalorie && !isLowCalorie(r)) return false;
+  if (f.highProtein && !isHighProtein(r)) return false;
+  return true;
+}
+
+// helper: normalize a DB row to the shape the app uses
+function mapRow(r: any): Recipe {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description ?? r.desc ?? undefined,
+    image: r.image_url ?? r.image ?? undefined,
+    protein: r.protein ?? r.protein_g ?? undefined,
+    calories: r.calories ?? r.calories_per_serving ?? undefined,
+    rating: r.rating ?? undefined,
+    staffPick: r.staffPick ?? r.staff_pick ?? false,
+    carbs: r.carbs ?? r.carbs_per_serving ?? undefined,
+    fat: r.fat ?? undefined,
+    vegan: r.vegan ?? undefined,
+    glutenFree: r.glutenFree ?? r.gluten_free ?? undefined,
+  };
+}
+
+export async function searchRecipes({
+  query = '',
+  filters = {} as Filters,
+  sort = 'relevance' as SortKey,
+  limit = 30,
+  offset = 0,
+}: {
+  query?: string;
+  filters?: Filters;
+  sort?: SortKey;
+  limit?: number;
+  offset?: number;
+}): Promise<Recipe[]> {
   const qNorm = (query ?? '').trim();
 
-  // ---- Try Supabase, but time out fast in dev
-  if (supabaseLooksUsable) {
+  if (supabaseUsable) {
     try {
-      const fetchPromise = (async () => {
-        let q = supabase.from('recipes').select('*').range(offset, offset + limit - 1);
-        if (qNorm) q = q.ilike('title', `%${qNorm}%`);
+      // Base select. We may fetch a little extra because we filter client-side for the highProtein rule.
+      // If you have many rows and strong filters, consider increasing this range or adding generated columns in DB.
+      let q = supabase
+        .from('recipes')
+        .select('*')
+        .range(offset, offset + Math.max(limit * 2 - 1, limit - 1)); // fetch extra to account for client-side filtering
 
-        if (filters.highProtein) q = q.gte('protein', 25);
-        if (filters.lowCalorie) q = q.lte('calories', 500);
-        if (filters.LowCarb)    q = q.lte('carbs', 30);
-        if (filters.vegan)      q = q.eq('vegan', true);
-        if (filters.glutenFree) q = q.eq('glutenFree', true);
+      // text search across title + description
+      if (qNorm) q = q.or(`title.ilike.%${qNorm}%,description.ilike.%${qNorm}%`);
 
-        const { data, error } = await q;
-        if (error) throw error;
+      // Push what we can to the DB:
+      // lowCalorie and lowCarb are simple column comparisons
+      if (filters.lowCalorie) q = q.lt('calories', 200);   // < 200 kcal
+      if (filters.lowCarb)    q = q.lt('carbs', 50);       // < 50 g carbs
+      if (filters.vegan)      q = q.eq('vegan', true);
+      if (filters.glutenFree) q = q.eq('gluten_free', true); // adjust if your column is camelCase
 
-        return (data || []).map((r: any) => ({
-          ...r,
-          // accept snake_case too
-          glutenFree: r.glutenFree ?? r.gluten_free ?? r.glutenfree ?? false,
-        })) as Recipe[];
-      })();
+      // Server-side sort where possible
+      switch (sort) {
+        case 'rating_desc':
+          q = q.order('rating', { ascending: false });
+          break;
+        case 'protein_desc':
+          q = q.order('protein', { ascending: false });
+          break;
+        case 'staff_picks':
+          // Sort staff picks first, then rating
+          q = q.order('staff_pick', { ascending: false }).order('rating', { ascending: false });
+          break;
+        case 'relevance':
+        default:
+          break; // leave natural order from text search
+      }
 
-      const withTimeout = Promise.race([
-        fetchPromise,
-        new Promise<Recipe[]>((resolve) => setTimeout(() => resolve(null as any), 3000)),
-      ]);
+      const { data, error } = await q;
+      if (error) throw error;
 
-      const data = await withTimeout;
-      if (Array.isArray(data)) return data;
-      // timed out -> fall through to local
-    } catch (e) {
-      // swallow and fall back
-      console.log('Supabase search failed, using local:', e);
+      // Normalize rows and apply the canonical predicate (handles highProtein rule)
+      let rows = (data ?? []).map(mapRow);
+      rows = rows.filter((r) => matchesNutritionFilters(r, filters));
+
+      // Final client-side sort safeguard (in case column names differ)
+      switch (sort) {
+        case 'rating_desc':
+          rows = rows.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+          break;
+        case 'protein_desc':
+          rows = rows.sort((a, b) => (b.protein ?? -1) - (a.protein ?? -1));
+          break;
+        case 'staff_picks':
+          rows = rows.sort(
+            (a, b) =>
+              ((b.staffPick ? 1 : 0) - (a.staffPick ? 1 : 0)) ||
+              (b.rating ?? -1) - (a.rating ?? -1)
+          );
+          break;
+        case 'relevance':
+        default:
+          break;
+      }
+
+      // Respect limit after client-side filtering
+      return rows.slice(0, limit);
+    } catch (err) {
+      console.log('Supabase search failed, falling back to local:', err);
     }
   }
 
-  // ---- Local fallback (works immediately)
+  // ------- Local fallback -------
   const matchesQuery = (r: Recipe) =>
-    !qNorm || r.title.toLowerCase().includes(qNorm.toLowerCase());
+    !qNorm ||
+    r.title?.toLowerCase().includes(qNorm.toLowerCase()) ||
+    r.description?.toLowerCase().includes(qNorm.toLowerCase());
 
   const matchesFilters = (r: Recipe) => {
-    if (filters.highProtein && !(typeof r.protein === 'number' && r.protein >= 25)) return false;
-    if (filters.lowCalorie && !(typeof r.calories === 'number' && r.calories <= 500)) return false;
-    if (filters.LowCarb     && !(typeof r.carbs === 'number' && r.carbs <= 30)) return false;
-    if (filters.vegan       && !(r.vegan === true)) return false;
-    if (filters.glutenFree  && !(r.glutenFree === true)) return false;
+    if (!matchesNutritionFilters(r, filters)) return false;
+    if (filters.vegan && !r.vegan) return false;
+    if (filters.glutenFree && !r.glutenFree) return false;
     return true;
   };
 
-  return LOCAL_SAMPLE.filter(r => matchesQuery(r) && matchesFilters(r)).slice(0, limit);
+  let rows = LOCAL_SAMPLE.filter((r) => matchesQuery(r) && matchesFilters(r));
+
+  switch (sort) {
+    case 'rating_desc':
+      rows = rows.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+      break;
+    case 'protein_desc':
+      rows = rows.sort((a, b) => (b.protein ?? -1) - (a.protein ?? -1));
+      break;
+    case 'staff_picks':
+      rows = rows.sort(
+        (a, b) =>
+          ((b.staffPick ? 1 : 0) - (a.staffPick ? 1 : 0)) ||
+          (b.rating ?? -1) - (a.rating ?? -1)
+      );
+      break;
+    case 'relevance':
+    default:
+      break;
+  }
+
+  return rows.slice(0, limit);
 }

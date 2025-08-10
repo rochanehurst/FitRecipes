@@ -1,3 +1,4 @@
+// App.js
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from './HomeScreen';
 import ResultsScreen from './ResultsScreen';
@@ -11,15 +12,19 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import RefineSearchScreen from './RefineSearchScreen';
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const SearchStackNav = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens for Search, Profile if not already present
-function SearchScreen() {
-  return null;
-}
-function ProfileScreen() {
-  return null;
+function SearchStack() {
+  return (
+    <SearchStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <SearchStackNav.Screen name="RefineSearch" component={RefineSearchScreen} />
+      <SearchStackNav.Screen name="Results" component={ResultsScreen} />
+      {/* optional: if you want detail inside the tab stack, add this: */}
+      {/* <SearchStackNav.Screen name="RecipeDetail" component={RecipeDetailScreen} /> */}
+    </SearchStackNav.Navigator>
+  );
 }
 
 function MainTabs() {
@@ -28,15 +33,10 @@ function MainTabs() {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'Home') {
-            iconName = 'home';
-          } else if (route.name === 'Search') {
-            iconName = 'search';
-          } else if (route.name === 'Favorites') {
-            iconName = 'bookmark';
-          } else if (route.name === 'Profile') {
-            iconName = 'person';
-          }
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Search') iconName = focused ? 'search' : 'search-outline';
+          else if (route.name === 'Favorites') iconName = focused ? 'bookmark' : 'bookmark-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#6BB14E',
@@ -46,9 +46,9 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Search" component={SearchStack} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile" component={AccountScreen} />
     </Tab.Navigator>
   );
 }
@@ -56,13 +56,12 @@ function MainTabs() {
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MainTabs" component={MainTabs} />
-        <Stack.Screen name="Results" component={ResultsScreen} />
-        <Stack.Screen name="RefineSearch" component={RefineSearchScreen} />
-        <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
-        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-      </Stack.Navigator>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="MainTabs" component={MainTabs} />
+        {/* Keep only global screens here */}
+        <RootStack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
+        <RootStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }

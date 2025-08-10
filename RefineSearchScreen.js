@@ -7,7 +7,7 @@ import { Ionicons, SimpleLineIcons, FontAwesome6, MaterialCommunityIcons } from 
 
 const FILTERS = [
   { key: 'highProtein', label: 'High Protein', icon: <Ionicons name="barbell" size={22} color="#944EB1" /> },
-  { key: 'LowCarb',     label: 'Low Carb',     icon: <SimpleLineIcons name="energy" size={22} color="#944EB1" /> },
+  { key: 'lowCarb',     label: 'Low Carb',     icon: <SimpleLineIcons name="energy" size={22} color="#944EB1" /> },
   { key: 'lowCalorie',  label: 'Low Calorie',  icon: <FontAwesome6 name="bowl-rice" size={22} color="#944EB1" /> },
   { key: 'vegan',       label: 'Vegan',        icon: <MaterialCommunityIcons name="leaf" size={22} color="#944EB1" /> },
   { key: 'glutenFree',  label: 'Gluten Free',  icon: <FontAwesome6 name="jar-wheat" size={22} color="#944EB1" /> },
@@ -32,13 +32,17 @@ export default function RefineSearchScreen() {
   };
 
   const onApply = () => {
-    navigation.navigate('Results', { query, filters: selected });
+    // turn selected ['lowCarb','vegan'] into {lowCarb:true, vegan:true}
+    const filtersObj = Object.fromEntries(selected.map(k => [k, true]));
+    navigation.navigate('Results', { query, filters: filtersObj });
   };
 
   const onClearAll = () => {
     setQuery('');
     setSelected([]);
   };
+
+  
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>

@@ -1,15 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+// ResultsScreen.js
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
-  Image,
-  Pressable,
-  StyleSheet,
+  View, Text, FlatList, ActivityIndicator, TouchableOpacity, Image, Platform, Pressable, StyleSheet
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { searchRecipes } from './data/search';
@@ -17,7 +11,7 @@ import { searchRecipes } from './data/search';
 const SORTS = [
   { key: 'relevance',    label: 'Relevance' },
   { key: 'rating_desc',  label: 'Highest Rated' },
-  { key: 'staff_picks',  label: 'Staff Picks' },   // expects item.staffPick === true
+  { key: 'staff_picks',  label: 'Staff Picks' },
   { key: 'protein_desc', label: 'Highest Protein' },
 ];
 
@@ -25,253 +19,185 @@ export default function ResultsScreen() {
   const route = useRoute();
   const navigation = useNavigation();
 
-  const { query = '', filters = [] } = route.params || {};
-  const initialFlags = useMemo(
-    () => (Array.isArray(filters)
-      ? Object.fromEntries(filters.map(k => [k, true]))
-      : (filters || {})),
-    [filters]
-  );
-
+  const { query = '', filters = {}, sort = 'relevance' } = route.params ?? {};
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState([]);
-  const [filterFlags, setFilterFlags] = useState(initialFlags);
+  const [recipes, setRecipes] = useState([]);
 
-  const [sortKey, setSortKey] = useState('relevance');
+  // sort state (controlled by funnel)
+  const [sortKey, setSortKey] = useState(sort);
   const [sortOpen, setSortOpen] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await searchRecipes({ query, filters: filterFlags });
-        if (alive) setResults(data || []);
-      } catch {
-        if (alive) setResults([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [query, JSON.stringify(filterFlags)]);
-
-  const displayResults = useMemo(() => {
-    const copy = [...results];
-    switch (sortKey) {
-      case 'rating_desc':
-        copy.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
-        break;
-      case 'protein_desc':
-        copy.sort((a, b) => (b.protein ?? -1) - (a.protein ?? -1));
-        break;
-      case 'staff_picks':
-        copy.sort((a, b) => (b?.staffPick === true) - (a?.staffPick === true));
-        break;
-      default: // relevance
-        break;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await searchRecipes({ query, filters, sort: sortKey, limit: 50, offset: 0 });
+      setRecipes(data);
+    } finally {
+      setLoading(false);
     }
-    return copy;
-  }, [results, sortKey]);
+  }, [query, JSON.stringify(filters), sortKey]);
 
-  const activeFilterEntries = Object.entries(filterFlags).filter(([, v]) => !!v);
-  const sortChipLabel = SORTS.find(s => s.key === sortKey)?.label ?? 'Relevance';
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useEffect(() => { load(); }, [sortKey, load]); // re-fetch when sort changes
 
-  // --- Header UI (always visible, not inside FlatList) ---
-  const Header = (
-    <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 }}>
-      {/* top row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={{ padding: 8, marginRight: 6 }}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={22} color="#944EB1" />
-        </TouchableOpacity>
+  const HeaderBar = () => (
+    <View style={{
+      flexDirection:'row', alignItems:'center', justifyContent:'space-between',
+      paddingHorizontal:12, paddingTop:4, paddingBottom:8, backgroundColor:'#fff'
+    }}>
+      {/* Back */}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding:8 }}>
+        <Ionicons name="arrow-back" size={22} color="#944EB1" />
+      </TouchableOpacity>
 
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 24, fontWeight: '700' }}>Results</Text>
-          {!!query && <Text style={{ color: '#666' }}>for “{query}”</Text>}
-          <Text style={{ color: '#888', marginTop: 2 }}>
-            {displayResults.length} result{displayResults.length === 1 ? '' : 's'}
-          </Text>
-        </View>
-
-
-        <Pressable
-          onPress={() => navigation.navigate('RefineSearch', {
-            query,
-            filters: filterFlags,   // prefill chips on Refine screen
-          })}
-          style={{ padding: 8, marginRight: 6 }}
-          accessibilityRole="button"
-          accessibilityLabel="Refine search"
-        >
-          <Text style={{ color: '#944EB1', fontWeight: '600' }}>Refine</Text>
-        </Pressable>
-
-
-        {/* funnel only */}
-        <Pressable
-          onPress={() => setSortOpen(true)}
-          style={{ padding: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="Change sort"
-        >
-          <Ionicons name="funnel" size={20} color="#944EB1" />
-        </Pressable>
+      {/* Title */}
+      <View style={{ flex:1, alignItems:'center' }}>
+        <Text style={{ fontSize:18, fontWeight:'700' }}>
+          {query ? `Results for “${query}”` : 'Results'}
+        </Text>
       </View>
 
-      {/* chips row */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' }}>
-        {activeFilterEntries.map(([k]) => (
-          <View
-            key={k}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#F1E7F7',
-              borderRadius: 16,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-            }}
-          >
-            <Text style={{ color: '#944EB1', fontWeight: '600', fontSize: 12 }}>{k}</Text>
-            <Pressable
-              hitSlop={8}
-              onPress={() => {
-                const next = { ...filterFlags };
-                delete next[k];
-                setFilterFlags(next);
-              }}
-              style={{ marginLeft: 6 }}
-              accessibilityLabel={`Remove ${k}`}
-            >
-              <Text style={{ color: '#944EB1', fontWeight: '900' }}>×</Text>
-            </Pressable>
-          </View>
-        ))}
+      {/* Refine (text) */}
+      <Pressable
+        onPress={() => navigation.navigate('RefineSearch', { query, filters })}
+        style={{ padding:8, marginRight: 2 }}
+        accessibilityLabel="Refine search"
+      >
+        <Text style={{ color:'#944EB1', fontWeight:'700' }}>Refine</Text>
+      </Pressable>
 
-        {/* sort chip */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#F1E7F7',
-            borderRadius: 16,
-            paddingVertical: 6,
-            paddingHorizontal: 10,
-          }}
-        >
-          <Text style={{ color: '#944EB1', fontWeight: '600', fontSize: 12 }}>
-            {sortChipLabel}
-          </Text>
-          {sortKey !== 'relevance' && (
-            <Pressable
-              hitSlop={8}
-              onPress={() => setSortKey('relevance')}
-              style={{ marginLeft: 6 }}
-              accessibilityLabel="Clear sort"
-            >
-              <Text style={{ color: '#944EB1', fontWeight: '900' }}>×</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+      {/* Funnel (opens sort menu) */}
+      <TouchableOpacity
+        onPress={() => setSortOpen(true)}
+        style={{ padding:8 }}
+        accessibilityLabel="Open sort menu"
+      >
+        <Ionicons name="funnel-outline" size={22} color="#944EB1" />
+      </TouchableOpacity>
     </View>
   );
 
+  const Item = ({ item }) => (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
+      activeOpacity={0.8}
+      style={{
+        flexDirection:'row', gap:12, marginBottom:14, backgroundColor:'#F7F7F7',
+        borderRadius:12, padding:10, marginHorizontal:16,
+        ...Platform.select({
+          ios: { shadowColor:'#000', shadowOpacity:0.08, shadowRadius:6, shadowOffset:{ width:0, height:2 } },
+          android: { elevation:2 },
+        })
+      }}
+    >
+      {!!item.image && (
+        <Image source={{ uri: item.image }} style={{ width:84, height:84, borderRadius:8, backgroundColor:'#ddd' }} />
+      )}
+      <View style={{ flex:1 }}>
+        <Text style={{ fontWeight:'700' }} numberOfLines={1}>{item.title}</Text>
+        {!!item.description && <Text style={{ color:'#666', marginTop:4 }} numberOfLines={2}>{item.description}</Text>}
+        <View style={{ flexDirection:'row', flexWrap:'wrap', gap:10, marginTop:6 }}>
+          {typeof item.calories === 'number' && <Text>{item.calories} kcal</Text>}
+          {typeof item.protein === 'number' && <Text>{item.protein} g protein</Text>}
+          {typeof item.carbs === 'number' && <Text>{item.carbs} g carbs</Text>}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex:1, backgroundColor:'#fff' }}>
+        <HeaderBar />
+        <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
+          <ActivityIndicator size="large" />
+          <Text style={{ marginTop: 8 }}>Loading recipes…</Text>
+        </View>
+        {sortOpen && <SortOverlay sortKey={sortKey} setSortKey={setSortKey} setSortOpen={setSortOpen} />}
+      </SafeAreaView>
+    );
+  }
+
+  if (!recipes.length) {
+    return (
+      <SafeAreaView style={{ flex:1, backgroundColor:'#fff' }}>
+        <HeaderBar />
+        <View style={{ flex:1, alignItems:'center', justifyContent:'center', padding:24 }}>
+          <Text style={{ fontWeight:'700', fontSize:16, marginBottom:8 }}>No results</Text>
+          <Text style={{ textAlign:'center', color:'#666' }}>
+            Try removing some filters or searching a different term.
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('RefineSearch', { query, filters })}
+            style={{ marginTop:16, backgroundColor:'#6BB14E', paddingVertical:12, paddingHorizontal:18, borderRadius:10 }}
+          >
+            <Text style={{ color:'#fff', fontWeight:'700' }}>Refine Filters</Text>
+          </TouchableOpacity>
+        </View>
+        {sortOpen && <SortOverlay sortKey={sortKey} setSortKey={setSortKey} setSortOpen={setSortOpen} />}
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* overlay sort menu */}
-      {sortOpen && (
-        <Pressable
-          onPress={() => setSortOpen(false)}
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.15)', zIndex: 20 }]}
-        >
-          <Pressable
-            onPress={() => {}}
+    <SafeAreaView style={{ flex:1, backgroundColor:'#fff' }}>
+      <HeaderBar />
+      <FlatList
+        data={recipes}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={{ paddingTop:8, paddingBottom:24 }}
+        ItemSeparatorComponent={() => <View style={{ height:12 }} />}
+        renderItem={({ item }) => <Item item={item} />}
+        onRefresh={load}
+        refreshing={loading}
+      />
+      {sortOpen && <SortOverlay sortKey={sortKey} setSortKey={setSortKey} setSortOpen={setSortOpen} />}
+    </SafeAreaView>
+  );
+}
+
+/* -------- small sort overlay (opened by funnel) -------- */
+function SortOverlay({ sortKey, setSortKey, setSortOpen }) {
+  return (
+    <Pressable
+      onPress={() => setSortOpen(false)}
+      style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.15)', zIndex: 20 }]}
+    >
+      <Pressable
+        onPress={() => {}}
+        style={{
+          position: 'absolute',
+          top: 72,
+          right: 12,
+          backgroundColor: '#fff',
+          borderRadius: 12,
+          paddingVertical: 8,
+          paddingHorizontal: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.12,
+          shadowRadius: 10,
+          elevation: 4,
+          width: 200,
+          zIndex: 21,
+        }}
+      >
+        {SORTS.map(opt => (
+          <TouchableOpacity
+            key={opt.key}
+            onPress={() => { setSortKey(opt.key); setSortOpen(false); }}
             style={{
-              position: 'absolute',
-              top: 72,
-              right: 12,
-              backgroundColor: '#fff',
-              borderRadius: 12,
-              paddingVertical: 8,
-              paddingHorizontal: 8,
-              shadowColor: '#000',
-              shadowOpacity: 0.12,
-              shadowRadius: 10,
-              elevation: 4,
-              width: 200,
-              zIndex: 21,
+              paddingVertical: 10,
+              paddingHorizontal: 10,
+              borderRadius: 8,
+              backgroundColor: sortKey === opt.key ? '#F1E7F7' : 'transparent',
             }}
           >
-            {SORTS.map(opt => (
-              <TouchableOpacity
-                key={opt.key}
-                onPress={() => { setSortKey(opt.key); setSortOpen(false); }}
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 10,
-                  borderRadius: 8,
-                  backgroundColor: sortKey === opt.key ? '#F1E7F7' : 'transparent',
-                }}
-              >
-                <Text style={{ color: '#944EB1', fontWeight: sortKey === opt.key ? '700' : '500' }}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </Pressable>
-        </Pressable>
-      )}
-
-      {/* header (fixed) */}
-      {Header}
-
-      {/* body */}
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 24 }} />
-      ) : displayResults.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text>No recipes found.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={displayResults}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ padding: 16, paddingTop: 0 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  backgroundColor: '#fff',
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 12,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-              >
-                {item.image ? (
-                  <Image source={{ uri: item.image }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 12 }} />
-                ) : null}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600', marginBottom: 4 }}>{item.title}</Text>
-                  {typeof item.protein === 'number' && <Text>Protein: {item.protein}g</Text>}
-                  {typeof item.calories === 'number' && <Text>Calories: {item.calories}</Text>}
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
-      )}
-    </SafeAreaView>
+            <Text style={{ color: '#944EB1', fontWeight: sortKey === opt.key ? '700' : '500' }}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </Pressable>
+    </Pressable>
   );
 }

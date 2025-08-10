@@ -75,9 +75,10 @@ export default function HomeScreen({ navigation }) {
   };
 
   const onSubmitSearch = () => {
-    // Results is in the parent Stack, so navigate via parent
-    navigation.getParent()?.navigate('Results', { query, filters: selectedFilters });
+    const filtersObj = Object.fromEntries(selectedFilters.map(k => [k, true]));
+    navigation.navigate('Search', { screen: 'Results', params: { query, filters: filtersObj } });
   };
+  
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
