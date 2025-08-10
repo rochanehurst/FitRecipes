@@ -201,7 +201,7 @@ export default function HomeScreen({ navigation }) {
           showsHorizontalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => navigation.navigate('RecipeDetail', { id: item.id })}
+              onPress={() => navigation.navigate('RecipeDetail', { recipe : item })}
               style={styles.featuredCardHorizontal}
               activeOpacity={0.8}
             >
@@ -220,7 +220,7 @@ export default function HomeScreen({ navigation }) {
           showsHorizontalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => navigation.navigate('RecipeDetail', { id: item.id })}
+            onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
               style={styles.featuredCardHorizontal}
               activeOpacity={0.8}
             >
@@ -234,8 +234,9 @@ export default function HomeScreen({ navigation }) {
           <TouchableOpacity
             onPress={() =>
               navigation.navigate('RecipeDetail', {
+                recipe: {
                 id: '1',
-                title: 'Chicken and Salad',
+                title: 'Grilled Chicken and Salad',
                 image: 'https://images.unsplash.com/photo-1662192512691-2786c53eca40?q=80&w=388&auto=format&fit=crop',
                 protein: 35,
                 calories: 400,
@@ -243,7 +244,7 @@ export default function HomeScreen({ navigation }) {
                 fat: 10,
                 vegan: false,
                 glutenFree: true,
-              })
+              }})
             }
             style={{
               marginTop: 30,
