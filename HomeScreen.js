@@ -4,7 +4,7 @@ import {
   StyleSheet, ImageBackground, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, SimpleLineIcons, FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFonts, Carattere_400Regular } from '@expo-google-fonts/carattere';
 import { getFavorites } from './favorites';
@@ -30,11 +30,25 @@ const HIGHEST_RATED_RECIPES = [
 /* ------------------------------------------------------------- */
 
 export default function HomeScreen({ navigation }) {
-  // hooks must always be in the same order
+  // local state
   const [query, setQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [favIds, setFavIds] = useState(new Set());
   const [fontsLoaded] = useFonts({ Carattere_400Regular });
+
+  // route to catch reset flag from Results "Clear"
+  const route = useRoute();
+
+  // handle reset flag
+  useFocusEffect(
+    useCallback(() => {
+      if (route.params?.reset) {
+        setQuery('');
+        setSelectedFilters([]);
+        navigation.setParams?.({ reset: undefined }); // clear flag
+      }
+    }, [route.params?.reset, navigation])
+  );
 
   // load saved favorites to show a bookmark on cards
   useFocusEffect(
@@ -50,14 +64,19 @@ export default function HomeScreen({ navigation }) {
 
   const FILTERS = [
     { key: 'highProtein', label: 'High Protein', icon: <Ionicons name="barbell" size={28} color="#944EB1" /> },
-    { key: 'LowCarb',     label: 'Low Carb',     icon: <FontAwesome6 name="bowl-rice" size={28} color="#944EB1" /> },
-    { key: 'lowCalorie',  label: 'Low Calorie',  icon: <SimpleLineIcons name="energy" size={28} color="#944EB1" /> },
+    { key: 'LowCarb',     label: 'Low Carb',     icon: <SimpleLineIcons name="energy" size={28} color="#944EB1" /> },
+    { key: 'lowCalorie',  label: 'Low Calorie',  icon: <FontAwesome6 name="bowl-rice" size={28} color="#944EB1" /> },
     { key: 'vegan',       label: 'Vegan',        icon: <MaterialCommunityIcons name="leaf" size={28} color="#944EB1" /> },
     { key: 'glutenFree',  label: 'Gluten Free',  icon: <FontAwesome6 name="jar-wheat" size={28} color="#944EB1" /> },
   ];
 
   const toggleFilter = (key) => {
     setSelectedFilters(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+  const onSubmitSearch = () => {
+    // Results is in the parent Stack, so navigate via parent
+    navigation.getParent()?.navigate('Results', { query, filters: selectedFilters });
   };
 
   return (
@@ -82,9 +101,12 @@ export default function HomeScreen({ navigation }) {
             placeholderTextColor="#888"
             value={query}
             onChangeText={setQuery}
+            onSubmitEditing={onSubmitSearch}
             style={styles.searchInputMockup}
           />
-          <Ionicons name="search" size={22} color="#888" style={styles.searchIconMockup} />
+          <TouchableOpacity onPress={onSubmitSearch} style={styles.searchIconMockup}>
+            <Ionicons name="search" size={22} color="#888" />
+          </TouchableOpacity>
         </View>
       </View>
 
